@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { matchPath, useLocation, useSearchParams } from 'react-router';
 
 import type { McpRequest } from '~/models/mcp-request';
@@ -17,6 +17,20 @@ import { type BaseTab, type TabType } from '../components/tabs/tab';
 import { TAB_ROUTER_PATH } from '../components/tabs/tab-list';
 import { formatMethodName, getRequestMethodShortHand } from '../components/tags/method-tag';
 import { useInsomniaTabContext } from '../context/app/insomnia-tab-context';
+
+// Animation interfaces
+export interface AnimationState {
+  isSending: boolean;
+  isSuccessful: boolean;
+  hasError: boolean;
+  startTime: number | null;
+}
+
+export interface AnimationConfig {
+  duration: number;
+  successDuration: number;
+  errorDuration: number;
+}
 
 interface InsomniaTabProps {
   organizationId: string;
@@ -44,6 +58,106 @@ export const useInsomniaTab = ({
   const { appTabsRef, addTab, changeActiveTab, closeTabById } = useInsomniaTabContext();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Animation state for send request functionality
+  const [animationState, setAnimationState] = useState<AnimationState>({
+    isSending: false,
+    isSuccessful: false,
+    hasError: false,
+    startTime: null,
+  });
+
+  const [animationConfig] = useState<AnimationConfig>({
+    duration: 2000, // 2 seconds for sending animation
+    successDuration: 1000, // 1 second for success animation
+    errorDuration: 1500, // 1.5 seconds for error animation
+  });
+
+  // Animation control functions
+  const startSendingAnimation = useCallback(() => {
+    setAnimationState({
+      isSending: true,
+      isSuccessful: false,
+      hasError: false,
+      startTime: Date.now(),
+    });
+  }, []);
+
+  const setSuccessAnimation = useCallback(() => {
+    setAnimationState(prev => ({
+      ...prev,
+      isSending: false,
+      isSuccessful: true,
+      hasError: false,
+    }));
+
+    // Reset after success duration
+    setTimeout(() => {
+      setAnimationState(prev => ({
+        ...prev,
+        isSuccessful: false,
+      }));
+    }, animationConfig.successDuration);
+  }, [animationConfig.successDuration]);
+
+  const setErrorAnimation = useCallback(() => {
+    setAnimationState(prev => ({
+      ...prev,
+      isSending: false,
+      isSuccessful: false,
+      hasError: true,
+    }));
+
+    // Reset after error duration
+    setTimeout(() => {
+      setAnimationState(prev => ({
+        ...prev,
+        hasError: false,
+      }));
+    }, animationConfig.errorDuration);
+  }, [animationConfig.errorDuration]);
+
+  const resetAnimation = useCallback(() => {
+    setAnimationState({
+      isSending: false,
+      isSuccessful: false,
+      hasError: false,
+      startTime: null,
+    });
+  }, []);
+
+  // Get animation CSS classes based on current state
+  const getAnimationClasses = useCallback(
+    (baseClasses: string = '') => {
+      const classes = [baseClasses];
+
+      if (animationState.isSending) {
+        classes.push('animate-pulse', 'bg-opacity-80');
+      }
+
+      if (animationState.isSuccessful) {
+        classes.push('animate-bounce', 'bg-green-500');
+      }
+
+      if (animationState.hasError) {
+        classes.push('animate-shake', 'bg-red-500');
+      }
+
+      return classes.join(' ');
+    },
+    [animationState],
+  );
+
+  // Get animation progress percentage (0-100)
+  const getAnimationProgress = useCallback(() => {
+    if (!animationState.startTime || !animationState.isSending) {
+      return 0;
+    }
+
+    const elapsed = Date.now() - animationState.startTime;
+    const progress = Math.min((elapsed / animationConfig.duration) * 100, 100);
+    return progress;
+  }, [animationState.startTime, animationState.isSending, animationConfig.duration]);
 
   const generateTabUrl = useCallback(
     (type: TabType) => {
@@ -351,4 +465,21 @@ export const useInsomniaTab = ({
       }
     },
   });
+
+  // Return animation functions and state for components to use
+  return {
+    // Animation state
+    animationState,
+    animationConfig,
+
+    // Animation control functions
+    startSendingAnimation,
+    setSuccessAnimation,
+    setErrorAnimation,
+    resetAnimation,
+
+    // Animation utilities
+    getAnimationClasses,
+    getAnimationProgress,
+  };
 };

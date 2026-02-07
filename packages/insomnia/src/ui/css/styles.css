@@ -25,6 +25,10 @@
   --animate-text-slide-4: text-slide-4 7s cubic-bezier(0.83, 0, 0.17, 1) infinite;
   --animate-up-loop: up-loop 1s linear infinite;
   --animate-down-loop: down-loop 1s linear infinite;
+  --animate-shake: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  --animate-rocket-launch: rocket-launch 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  --animate-party-popper: party-popper 1s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+  --animate-success-burst: success-burst 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 
   @keyframes text-slide-4 {
     0%,
@@ -77,6 +81,67 @@
     100% {
       transform: translateY(10px);
       opacity: 0;
+    }
+  }
+  @keyframes shake {
+    10%,
+    90% {
+      transform: translate3d(-1px, 0, 0);
+    }
+    20%,
+    80% {
+      transform: translate3d(2px, 0, 0);
+    }
+    30%,
+    50%,
+    70% {
+      transform: translate3d(-4px, 0, 0);
+    }
+    40%,
+    60% {
+      transform: translate3d(4px, 0, 0);
+    }
+  }
+  @keyframes rocket-launch {
+    0% {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: translateY(-10px) scale(1.1);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(-50px) scale(0.8);
+      opacity: 0;
+    }
+  }
+  @keyframes party-popper {
+    0% {
+      transform: scale(0) rotate(0deg);
+      opacity: 0;
+    }
+    50% {
+      transform: scale(1.2) rotate(180deg);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1) rotate(360deg);
+      opacity: 0;
+    }
+  }
+  @keyframes success-burst {
+    0% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+    }
+    70% {
+      transform: scale(1.05);
+      box-shadow: 0 0 0 20px rgba(34, 197, 94, 0);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
     }
   }
 }

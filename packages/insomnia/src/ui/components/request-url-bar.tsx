@@ -21,6 +21,8 @@ import { vaultEnvironmentRuntimePath } from '../../models/environment';
 import type { Request } from '../../models/request';
 import { isEventStreamRequest, isGraphqlSubscriptionRequest } from '../../models/request';
 import { isRequestGroup, type RequestGroup } from '../../models/request-group';
+import type { Project } from '../../models/project';
+import type { Workspace } from '../../models/workspace';
 import { getOrInheritAuthentication, getOrInheritHeaders } from '../../network/network';
 import { useWorkspaceLoaderData } from '../../routes/organization.$organizationId.project.$projectId.workspace.$workspaceId';
 import {
@@ -33,6 +35,7 @@ import { useInsomniaTabContext } from '../context/app/insomnia-tab-context';
 import { useReadyState } from '../hooks/use-ready-state';
 import { useRequestMetaPatcher, useRequestPatcher } from '../hooks/use-request';
 import { useTimeoutWhen } from '../hooks/use-timeout-when';
+import { useSendAnimation } from '../hooks/use-send-animation';
 import { Dropdown, type DropdownHandle, DropdownItem, DropdownSection, ItemContent } from './base/dropdown';
 import { MethodDropdown } from './dropdowns/method-dropdown';
 import { createKeybindingsHandler, useDocBodyKeyboardShortcuts } from './keydown-binder';
@@ -121,6 +124,17 @@ export const RequestUrlBar = forwardRef<RequestUrlBarHandle, Props>(
     const isRealtimeRequest =
       activeRequest && (isEventStreamRequest(activeRequest) || isGraphqlSubscriptionRequest(activeRequest));
 
+    // Initialize animation hook
+    const {
+      animationState,
+      startSendingAnimation,
+      setSuccessAnimation,
+      setErrorAnimation,
+      getAnimationClasses,
+      getAnimationEmoji,
+      getEmojiAnimationClass,
+    } = useSendAnimation();
+
     const focusInput = useCallback(() => {
       if (inputRef.current) {
         inputRef.current.focusEnd();
@@ -185,6 +199,9 @@ export const RequestUrlBar = forwardRef<RequestUrlBarHandle, Props>(
         // reset timeout
         setCurrentTimeout(undefined);
 
+        // Start sending animation
+        startSendingAnimation();
+
         if (isEventStreamRequest(activeRequest) || isGraphqlSubscriptionRequest(activeRequest)) {
           const startListening = async () => {
             const environmentId = activeEnvironment._id;
@@ -223,7 +240,11 @@ export const RequestUrlBar = forwardRef<RequestUrlBarHandle, Props>(
 
         try {
           send({ requestId, shouldPromptForPathAfterResponse, ignoreUndefinedEnvVariable });
+          // If we get here successfully, trigger success animation
+          setTimeout(() => setSuccessAnimation(), 100);
         } catch (err) {
+          // Trigger error animation
+          setErrorAnimation();
           const errorMessage = err instanceof Error ? err.message : String(err);
           showModal(AlertModal, {
             title: 'Unexpected Request Failure',
@@ -238,7 +259,18 @@ export const RequestUrlBar = forwardRef<RequestUrlBarHandle, Props>(
           });
         }
       },
-      [activeEnvironment._id, activeRequest, activeWorkspace._id, connect, requestId, send, updateTabById],
+      [
+        activeEnvironment._id,
+        activeRequest,
+        activeWorkspace._id,
+        connect,
+        requestId,
+        send,
+        updateTabById,
+        startSendingAnimation,
+        setSuccessAnimation,
+        setErrorAnimation,
+      ],
     );
 
     useEffect(() => {
@@ -335,10 +367,20 @@ export const RequestUrlBar = forwardRef<RequestUrlBarHandle, Props>(
               <>
                 <button
                   onClick={() => sendOrConnect()}
-                  className={`bg-(--color-surprise) px-(--padding-md) text-(--color-font-surprise) ${borderRadius}`}
+                  className={getAnimationClasses(
+                    `bg-(--color-surprise) px-(--padding-md) text-(--color-font-surprise) ${borderRadius}`,
+                  )}
+                  disabled={animationState.isSending}
                   type="button"
                 >
-                  {buttonText}
+                  <span className="relative z-10">{animationState.isSending ? 'Sending...' : buttonText}</span>
+                  {getAnimationEmoji() && (
+                    <span
+                      className={`pointer-events-none absolute inset-0 flex items-center justify-center ${getEmojiAnimationClass()}`}
+                    >
+                      {getAnimationEmoji()}
+                    </span>
+                  )}
                 </button>
                 {isRealtimeRequest ? null : (
                   <Dropdown
