@@ -130,6 +130,7 @@ export const RequestUrlBar = forwardRef<RequestUrlBarHandle, Props>(
       startSendingAnimation,
       setSuccessAnimation,
       setErrorAnimation,
+      setHttpErrorAnimation,
       getAnimationClasses,
       getAnimationEmoji,
       getEmojiAnimationClass,
@@ -240,8 +241,64 @@ export const RequestUrlBar = forwardRef<RequestUrlBarHandle, Props>(
 
         try {
           send({ requestId, shouldPromptForPathAfterResponse, ignoreUndefinedEnvVariable });
-          // If we get here successfully, trigger success animation
-          setTimeout(() => setSuccessAnimation(), 100);
+
+          // Wait for request to complete and check response status
+          setTimeout(async () => {
+            try {
+              // Try to get the actual response from database
+              const response = await models.response.getLatestForRequestId(requestId, activeEnvironment._id);
+
+              if (response) {
+                // Check if there's an actual error
+                if (response.error) {
+                  // Network/connection error
+                  setErrorAnimation();
+                } else if (response.statusCode) {
+                  // HTTP response received
+                  if (response.statusCode >= 200 && response.statusCode < 300) {
+                    // Success: 200-299
+                    setSuccessAnimation();
+                  } else {
+                    // HTTP Error: 400-599
+                    setHttpErrorAnimation();
+                  }
+                } else {
+                  // No status code but no error, assume success
+                  setSuccessAnimation();
+                }
+              } else {
+                // No response at all, might still be loading
+                // Wait a bit more and check again
+                setTimeout(async () => {
+                  try {
+                    const retryResponse = await models.response.getLatestForRequestId(requestId, activeEnvironment._id);
+                    if (retryResponse && retryResponse.statusCode) {
+                      if (retryResponse.statusCode >= 200 && retryResponse.statusCode < 300) {
+                        setSuccessAnimation();
+                      } else {
+                        setHttpErrorAnimation();
+                      }
+                    } else {
+                      // Still no response, check for error
+                      if (retryResponse && retryResponse.error) {
+                        setErrorAnimation();
+                      } else {
+                        // Default to success after waiting
+                        setSuccessAnimation();
+                      }
+                    }
+                  } catch (error) {
+                    console.log('Retry error checking response status:', error);
+                    setSuccessAnimation();
+                  }
+                }, 2000); // Additional 2 seconds wait
+              }
+            } catch (error) {
+              console.log('Error checking response status:', error);
+              // If we can't check status, default to success
+              setSuccessAnimation();
+            }
+          }, 2500); // Wait 2.5 seconds for initial check
         } catch (err) {
           // Trigger error animation
           setErrorAnimation();

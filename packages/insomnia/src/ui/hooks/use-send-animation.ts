@@ -4,6 +4,7 @@ export interface AnimationState {
   isSending: boolean;
   isSuccessful: boolean;
   hasError: boolean;
+  isHttpError: boolean; // New: for non-200 status codes
   startTime: number | null;
 }
 
@@ -18,6 +19,7 @@ export const useSendAnimation = (config: Partial<AnimationConfig> = {}) => {
     isSending: false,
     isSuccessful: false,
     hasError: false,
+    isHttpError: false,
     startTime: null,
   });
 
@@ -34,6 +36,7 @@ export const useSendAnimation = (config: Partial<AnimationConfig> = {}) => {
       isSending: true,
       isSuccessful: false,
       hasError: false,
+      isHttpError: false,
       startTime: Date.now(),
     });
   }, []);
@@ -44,6 +47,7 @@ export const useSendAnimation = (config: Partial<AnimationConfig> = {}) => {
       isSending: false,
       isSuccessful: true,
       hasError: false,
+      isHttpError: false,
     }));
 
     // Reset after success duration
@@ -61,6 +65,7 @@ export const useSendAnimation = (config: Partial<AnimationConfig> = {}) => {
       isSending: false,
       isSuccessful: false,
       hasError: true,
+      isHttpError: false,
     }));
 
     // Reset after error duration
@@ -72,11 +77,30 @@ export const useSendAnimation = (config: Partial<AnimationConfig> = {}) => {
     }, animationConfig.errorDuration);
   }, [animationConfig.errorDuration]);
 
+  const setHttpErrorAnimation = useCallback(() => {
+    setAnimationState(prev => ({
+      ...prev,
+      isSending: false,
+      isSuccessful: false,
+      hasError: false,
+      isHttpError: true,
+    }));
+
+    // Reset after error duration
+    setTimeout(() => {
+      setAnimationState(prev => ({
+        ...prev,
+        isHttpError: false,
+      }));
+    }, animationConfig.errorDuration);
+  }, [animationConfig.errorDuration]);
+
   const resetAnimation = useCallback(() => {
     setAnimationState({
       isSending: false,
       isSuccessful: false,
       hasError: false,
+      isHttpError: false,
       startTime: null,
     });
   }, []);
@@ -98,6 +122,10 @@ export const useSendAnimation = (config: Partial<AnimationConfig> = {}) => {
         classes.push('animate-shake', 'bg-red-500', 'relative');
       }
 
+      if (animationState.isHttpError) {
+        classes.push('animate-shake', 'bg-red-600', 'relative');
+      }
+
       return classes.join(' ');
     },
     [animationState],
@@ -117,6 +145,10 @@ export const useSendAnimation = (config: Partial<AnimationConfig> = {}) => {
       return '💥';
     }
 
+    if (animationState.isHttpError) {
+      return '😢';
+    }
+
     return '';
   }, [animationState]);
 
@@ -126,7 +158,7 @@ export const useSendAnimation = (config: Partial<AnimationConfig> = {}) => {
       return 'animate-rocket-launch';
     }
 
-    if (animationState.isSuccessful || animationState.hasError) {
+    if (animationState.isSuccessful || animationState.hasError || animationState.isHttpError) {
       return 'animate-party-popper';
     }
 
@@ -153,6 +185,7 @@ export const useSendAnimation = (config: Partial<AnimationConfig> = {}) => {
     startSendingAnimation,
     setSuccessAnimation,
     setErrorAnimation,
+    setHttpErrorAnimation,
     resetAnimation,
 
     // Animation utilities
